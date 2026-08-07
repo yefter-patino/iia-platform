@@ -31,21 +31,31 @@ state in S3.
 
 ### 1. AWS profile
 
-Create a named profile so nothing depends on default credentials:
+This lab currently runs on the **`default`** profile. That is what the
+committed `.example` files point at, and what the live `terraform.tfvars` and
+`envs/dev/backend.hcl` use.
+
+A dedicated named profile is the better habit — it keeps the lab's credentials
+separate from whatever your default profile happens to point at, so a stray
+`terraform apply` in the wrong shell cannot reach the wrong account. To switch:
 
 ```bash
 aws configure --profile platform-lab
 ```
 
-You will be prompted for the access key, secret, region and output format.
-Those values are written to `~/.aws/credentials` on your Mac. They never go in
-this repo — `.gitignore` blocks `.tfvars`, `credentials`, `.env` and `*.pem`,
-and the pre-commit hooks scan for keys on every commit.
+Then set `aws_profile = "platform-lab"` in **both** `terraform.tfvars` files and
+`profile` in `envs/dev/backend.hcl`. All three have to agree, or `init` and
+`apply` will authenticate as different identities.
 
-Confirm you are not on the root user:
+Either way, the access key and secret are written to `~/.aws/credentials` on
+your Mac. They never go in this repo — `.gitignore` blocks `.tfvars`,
+`credentials`, `.env` and `*.pem`, and the pre-commit hooks scan for keys on
+every commit.
+
+Confirm you are not on the root user (pass whichever profile you chose):
 
 ```bash
-./scripts/check-identity.sh platform-lab
+./scripts/check-identity.sh default
 ```
 
 ### 2. Toolchain

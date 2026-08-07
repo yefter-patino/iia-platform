@@ -2,4 +2,4 @@
 # Then: terraform init -backend-config=backend.hcl
 bucket  = "yefter-tfstate-<ACCOUNT_ID>-<REGION>"
 region  = "<REGION>"
-profile = "platform-lab"
+profile = "default"
