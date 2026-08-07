@@ -1,0 +1,33 @@
+# Pre-commit runs these checks before every `git commit`.
+# Install once:  pip install pre-commit && pre-commit install
+#
+# The point of the secret scanners: it is far easier to stop a key from
+# being committed than to remove it from git history afterwards.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      # Catches AWS access keys specifically.
+      - id: detect-aws-credentials
+        args: ["--allow-missing-credentials"]
+      - id: detect-private-key
+
+  - repo: https://github.com/antonbabenko/pre-commit-terraform
+    rev: v1.99.0
+    hooks:
+      - id: terraform_fmt
+      - id: terraform_validate
+
+  # Broad secret scanner -- catches tokens the AWS-specific hook misses.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.0
+    hooks:
+      - id: gitleaks

@@ -1,0 +1,12 @@
+# Copy to terraform.tfvars and adjust. terraform.tfvars is gitignored.
+aws_region  = "us-east-1"
+aws_profile = "platform-lab"
+name_prefix = "yefter"
+environment = "dev"
+
+# /16 gives you room for every later phase. Two /24 public + two /24 private.
+vpc_cidr = "10.20.0.0/16"
+az_count = 2
+
+# Flip to false and re-apply to kill the NAT Gateway between work sessions.
+enable_nat_gateway = true

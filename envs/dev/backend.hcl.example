@@ -1,0 +1,5 @@
+# Copy to backend.hcl and paste in the bucket name that bootstrap printed.
+# Then: terraform init -backend-config=backend.hcl
+bucket  = "yefter-tfstate-<ACCOUNT_ID>-<REGION>"
+region  = "<REGION>"
+profile = "platform-lab"

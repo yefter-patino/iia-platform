@@ -1,0 +1,38 @@
+# --- Terraform ---
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+crash.log
+tfplan
+*.tfplan
+
+# Real values live here. The .example files are what get committed.
+*.tfvars
+!*.tfvars.example
+backend.hcl
+!backend.hcl.example
+
+# --- AWS / secrets ---
+.env
+*.pem
+*.key
+credentials
+.aws/
+
+# --- Python (Phase 5) ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+dist/
+build/
+*.egg-info/
+
+# --- Editor / OS ---
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.DS_Store
