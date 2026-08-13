@@ -39,3 +39,20 @@ module "iam" {
 
   tags = var.common_tags
 }
+
+# --- Phase 3: the data lake -------------------------------------------------
+
+module "datalake" {
+  source = "../../modules/datalake"
+
+  name_prefix = var.name_prefix
+  environment = var.environment
+
+  # Null = on-demand. Set a cron only when you have a reason for the crawler
+  # to run without you asking it to.
+  crawler_schedule = var.crawler_schedule
+
+  athena_bytes_scanned_cutoff = var.athena_bytes_scanned_cutoff
+
+  tags = var.common_tags
+}

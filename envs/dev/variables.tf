@@ -53,6 +53,18 @@ variable "trusted_services" {
   default     = ["ec2.amazonaws.com"]
 }
 
+variable "crawler_schedule" {
+  description = "Cron for the Glue crawler. Null means on-demand only, which is the cheap default."
+  type        = string
+  default     = null
+}
+
+variable "athena_bytes_scanned_cutoff" {
+  description = "Cancel any Athena query scanning more than this many bytes. Default 1 GiB."
+  type        = number
+  default     = 1073741824
+}
+
 variable "common_tags" {
   description = "Tags applied to every resource."
   type        = map(string)

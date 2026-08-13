@@ -17,6 +17,7 @@ bootstrap/          run once - creates the Terraform state bucket + budget alarm
 modules/
   network/          reusable VPC module (Phase 1)
   iam/              KMS key, Secrets Manager secret, least-privilege role (Phase 2)
+  datalake/         S3 buckets, Glue catalog + crawler, Athena workgroup (Phase 3)
 envs/
   dev/              the dev environment - calls the modules
 scripts/            helper shell scripts
@@ -126,6 +127,10 @@ Transit Gateway**. Phase 1 only has the first one.
 | S3 state bucket | pennies | leave it up |
 | KMS customer-managed key (Phase 2) | ~$1.00/month | does not stop when you stop working |
 | Secrets Manager secret (Phase 2) | ~$0.40/month | same |
+| S3 lake storage (Phase 3) | pennies | leave it up |
+| Glue Data Catalog (Phase 3) | free | under a million objects |
+| Glue crawler run (Phase 3) | ~$0.15 per run | on-demand only — no schedule by default |
+| Athena query (Phase 3) | $5/TB scanned | workgroup cancels anything over 1 GiB |
 
 `nat-off.sh` sets `enable_nat_gateway = false` and re-applies, so you tear down
 only the NAT and its EIP. The VPC survives, which means the next morning is one
@@ -170,7 +175,7 @@ value you meant to parameterise.
 | 0 | Account safety, toolchain, Git workflow | ✅ in this repo |
 | 1 | VPC, subnets, NAT, routing, security groups | ✅ in this repo |
 | 2 | IAM roles, least-privilege policies, Secrets Manager | ✅ in this repo |
-| 3 | S3 data lake + Glue crawler/ETL + Athena | |
+| 3 | S3 data lake + Glue crawler/ETL + Athena | ✅ in this repo |
 | 4 | PySpark anomaly job on transient EMR | |
 | 5 | `platformctl` Python CLI + boto3 + pytest/moto | |
 | 6 | FastAPI service in Docker, pushed to ECR, run on ECS | |
