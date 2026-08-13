@@ -128,6 +128,13 @@ Transit Gateway**. Phase 1 only has the first one.
 only the NAT and its EIP. The VPC survives, which means the next morning is one
 command instead of a full rebuild.
 
+It writes that value into `envs/dev/terraform.tfvars` rather than passing
+`-var` for the one run, and the distinction matters: a `-var` flag persists
+nothing, so the next plain `terraform apply` in the loop above would rebuild
+the NAT and quietly restart the billing you thought you had stopped. If
+`terraform plan` ever offers to create `aws_nat_gateway`, check that file
+before you type yes.
+
 ---
 
 ## Git workflow
