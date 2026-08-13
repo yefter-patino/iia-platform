@@ -49,6 +49,12 @@ variable "single_nat_gateway" {
   default     = true
 }
 
+variable "enable_s3_gateway_endpoint" {
+  description = "Route S3 traffic from the private subnets through a VPC gateway endpoint instead of the NAT Gateway. Free, and it removes per-GB NAT data charges for S3. No reason to turn this off."
+  type        = bool
+  default     = true
+}
+
 variable "tags" {
   description = "Tags applied to every resource in this module."
   type        = map(string)

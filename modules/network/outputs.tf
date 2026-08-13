@@ -47,3 +47,8 @@ output "nat_gateway_public_ips" {
   description = "Public IPs of the NAT Gateways. Empty when NAT is disabled."
   value       = aws_eip.nat[*].public_ip
 }
+
+output "s3_gateway_endpoint_id" {
+  description = "ID of the S3 gateway endpoint. Null when disabled."
+  value       = try(aws_vpc_endpoint.s3[0].id, null)
+}

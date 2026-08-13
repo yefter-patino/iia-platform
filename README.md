@@ -131,6 +131,7 @@ Transit Gateway**. Phase 1 only has the first one.
 | Glue Data Catalog (Phase 3) | free | under a million objects |
 | Glue crawler run (Phase 3) | ~$0.15 per run | on-demand only — no schedule by default |
 | Athena query (Phase 3) | $5/TB scanned | workgroup cancels anything over 1 GiB |
+| S3 gateway endpoint | free | **saves money** — keeps S3 traffic off the NAT |
 
 `nat-off.sh` sets `enable_nat_gateway = false` and re-applies, so you tear down
 only the NAT and its EIP. The VPC survives, which means the next morning is one
@@ -181,7 +182,7 @@ value you meant to parameterise.
 | 6 | FastAPI service in Docker, pushed to ECR, run on ECS | |
 | 7 | GitLab CI: lint → test → plan → build → deploy | |
 | 8 | CloudWatch alarms + Prometheus/Grafana | |
-| 9 | S3 gateway endpoint, cross-account `sts:AssumeRole` | |
+| 9 | S3 gateway endpoint, cross-account `sts:AssumeRole` | S3 endpoint ✅ · cross-account needs a 2nd account |
 | Capstone | End-to-end run, Neo4j topology graph, architecture write-up | |
 
 Phase 9 attaches the S3 gateway endpoint to the private route tables — that is

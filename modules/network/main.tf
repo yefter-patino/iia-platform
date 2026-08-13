@@ -186,6 +186,45 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private[count.index].id
 }
 
+# --- S3 gateway endpoint ----------------------------------------------------
+#
+# Without this, a private instance reaching S3 goes out through the NAT
+# Gateway and every byte is billed as NAT data processing. With it, the
+# traffic never leaves the AWS network: entries are added to the private route
+# tables sending S3-bound prefixes to the endpoint instead of to the NAT.
+#
+# There are two kinds of VPC endpoint and the difference matters:
+#
+#   Gateway   S3 and DynamoDB only. Free. Works by adding route table
+#             entries -- no ENI, no hourly charge.
+#   Interface Everything else (SSM, ECR, Secrets Manager...). ~$7/month per
+#             endpoint per AZ, because each one is a real ENI.
+#
+# This is a gateway endpoint, so it is free and there is no reason not to have
+# it. Phase 4's EMR job reads and writes S3 constantly; routing that through
+# the NAT would be paying per gigabyte for nothing.
+#
+# Note it attaches to the PRIVATE route tables only. Public subnets already
+# reach S3 through the Internet Gateway at no NAT cost.
+
+resource "aws_vpc_endpoint" "s3" {
+  count = var.enable_s3_gateway_endpoint ? 1 : 0
+
+  vpc_id            = aws_vpc.this.id
+  service_name      = "com.amazonaws.${data.aws_region.current.region}.s3"
+  vpc_endpoint_type = "Gateway"
+
+  # Associating the endpoint with a route table is what actually creates the
+  # route. An endpoint with no associations is inert.
+  route_table_ids = aws_route_table.private[*].id
+
+  tags = merge(var.tags, {
+    Name = "${local.name}-s3-endpoint"
+  })
+}
+
+data "aws_region" "current" {}
+
 # --- Baseline security groups -----------------------------------------------
 # Security groups are stateful: allow traffic in, and the reply is allowed
 # out automatically. You do not need a matching rule for the response.
