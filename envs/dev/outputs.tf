@@ -56,3 +56,35 @@ output "instance_profile_name" {
   description = "Pass this to `aws ec2 run-instances --iam-instance-profile` to get an SSM-reachable test instance."
   value       = module.iam.instance_profile_name
 }
+
+# --- Phase 3 ----------------------------------------------------------------
+
+output "raw_bucket_name" {
+  description = "Bucket where synthetic telemetry lands."
+  value       = module.datalake.raw_bucket_name
+}
+
+output "curated_bucket_name" {
+  description = "Bucket for processed output."
+  value       = module.datalake.curated_bucket_name
+}
+
+output "telemetry_s3_uri" {
+  description = "Upload telemetry under this URI -- it is what the crawler scans."
+  value       = module.datalake.telemetry_s3_uri
+}
+
+output "glue_database_name" {
+  description = "Glue catalog database."
+  value       = module.datalake.glue_database_name
+}
+
+output "glue_crawler_name" {
+  description = "Run with: aws glue start-crawler --name <this>"
+  value       = module.datalake.glue_crawler_name
+}
+
+output "athena_workgroup_name" {
+  description = "Pass with --work-group so the scan ceiling applies."
+  value       = module.datalake.athena_workgroup_name
+}
