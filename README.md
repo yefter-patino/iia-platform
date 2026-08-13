@@ -132,16 +132,21 @@ command instead of a full rebuild.
 
 ## Git workflow
 
-One branch per phase, opened as a merge request, self-reviewed, then merged.
+Remote: <https://github.com/yefter-patino/iia-platform> — **public**, so treat
+every commit as world-readable. The `.gitignore` and the pre-commit scanners
+are what keep real values out; never work around them.
+
+One branch per phase, opened as a pull request, self-reviewed, then merged.
 
 ```bash
-git checkout -b phase-1-network
+git checkout -b phase-2-iam
 # ...work...
-git add -A && git commit -m "Phase 1: VPC, subnets, NAT, route tables"
-git push -u origin phase-1-network
+git add -A && git commit -m "Phase 2: IAM roles, policies, Secrets Manager"
+git push -u origin phase-2-iam
+gh pr create --fill        # or use the link git prints
 ```
 
-Then open the MR in GitLab, read your own diff properly, and merge.
+Then read your own diff properly on GitHub and merge.
 
 Reading your own diff is not a formality — it is where you catch the hardcoded
 value you meant to parameterise.
