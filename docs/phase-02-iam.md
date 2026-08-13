@@ -15,11 +15,13 @@ KMS key (customer-managed, rotating)
       Secrets Manager secret   yefter/dev/app
        └── readable by
             IAM role  yefter-dev-secret-reader
-             └── via  IAM policy naming exactly one secret ARN
+             ├── via  IAM policy naming exactly one secret ARN
+             ├── plus AmazonSSMManagedInstanceCore (Session Manager)
+             └── wrapped in an instance profile for EC2
 ```
 
-Six resources: the key, its alias, the secret, the role, the policy, and the
-attachment.
+Eight resources: the key, its alias, the secret, the role, the least-privilege
+policy and its attachment, the SSM policy attachment, and the instance profile.
 
 ## Why a customer-managed key at all
 
@@ -107,7 +109,7 @@ their roles now would mean guessing at permissions for resources that do not
 exist, and rewriting them when they do. The reusable piece is the *pattern*
 above, not a pile of speculative roles.
 
-## Known gap: the SSM instance profile
+## The SSM instance profile
 
 `docs/phase-01-network.md` says twice that Phase 2 supplies an instance profile
 so you can reach a private instance with SSM Session Manager, and calls that
@@ -116,12 +118,51 @@ the verification step for Phase 1:
 > The test instance is deliberately not in this code — launching it needs the
 > instance profile from Phase 2.
 
-**That is not in this phase.** It needs an `aws_iam_instance_profile`, the
-`AmazonSSMManagedInstanceCore` managed policy, and either a NAT or three VPC
-interface endpoints for SSM to reach the service from a private subnet. Until
-it exists, Phase 1's "done when" test has not actually been run.
+That is now here: `AmazonSSMManagedInstanceCore` attached to the role, wrapped
+in an `aws_iam_instance_profile`.
 
-It is a small addition and the natural first thing to add next.
+**Why an instance profile exists at all.** An IAM role cannot be attached to an
+EC2 instance directly. The instance profile is the container that makes it
+possible. You only ever learn this by launching an instance and finding your
+role missing from the dropdown.
+
+**Why Session Manager needs no inbound rule.** The SSM agent on the instance
+polls the service and opens the connection *outbound*. You never dial in, so
+there is no port to open, no bastion, and no key pair to lose. Every session is
+logged.
+
+The flip side of outbound-only: the instance still needs a path to the SSM
+service. Either the NAT Gateway, or VPC interface endpoints for `ssm`,
+`ssmmessages` and `ec2messages`. Those endpoints are about $7/month each, so
+for a lab the NAT is much cheaper for the length of one test.
+
+`AmazonSSMManagedInstanceCore` is AWS-managed rather than hand-written on
+purpose: the permission set changes as the agent gains features, and AWS
+maintains it. Hand-writing it means owning that maintenance for no benefit.
+
+## Still not verified end to end
+
+The IAM side is done and confirmed against AWS. The actual test — shell on a
+private instance with no inbound rule — has **not been run**, because it needs
+two things this repo does not create:
+
+1. the NAT Gateway on (`./scripts/nat-on.sh`), or the three interface endpoints
+2. an EC2 instance in a private subnet, launched with this instance profile
+
+```bash
+./scripts/nat-on.sh
+aws ec2 run-instances \
+  --image-id resolve:ssm:/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64 \
+  --instance-type t3.micro \
+  --subnet-id "$(terraform output -json private_subnet_ids | python3 -c 'import sys,json;print(json.load(sys.stdin)[0])')" \
+  --iam-instance-profile "Name=$(terraform output -raw instance_profile_name)"
+
+# wait for it to register, then:
+aws ssm start-session --target <instance-id>
+```
+
+Terminate the instance and run `./scripts/nat-off.sh` afterwards. Until someone
+does this, Phase 1's "done when" remains a claim rather than a result.
 
 ## Cost
 
@@ -129,7 +170,7 @@ It is a small addition and the natural first thing to add next.
 |---|---|
 | KMS customer-managed key | ~$1.00/month |
 | Secrets Manager secret | ~$0.40/month |
-| IAM role, policy, attachment | free |
+| IAM role, policies, attachments, instance profile | free |
 
 About **$1.40/month**, and unlike the NAT it does not stop when you stop
 working. Destroy it with `terraform destroy -target=module.iam` if the lab goes
@@ -145,6 +186,8 @@ value can be set with `put-secret-value` without that value ever appearing in
 
 Verified on apply: rotation enabled (365-day period), secret encrypted with the
 customer-managed key, and the policy document containing no wildcards.
+
+Not yet verified: the Session Manager shell itself. See above.
 
 ## Things that broke / things learned
 
