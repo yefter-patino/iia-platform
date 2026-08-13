@@ -41,6 +41,18 @@ variable "enable_nat_gateway" {
   default     = true
 }
 
+variable "secret_name" {
+  description = "Last path segment of the application secret. Full name becomes <name_prefix>/<environment>/<secret_name>."
+  type        = string
+  default     = "app"
+}
+
+variable "trusted_services" {
+  description = "AWS service principals allowed to assume the secret-reader role."
+  type        = list(string)
+  default     = ["ec2.amazonaws.com"]
+}
+
 variable "common_tags" {
   description = "Tags applied to every resource."
   type        = map(string)
