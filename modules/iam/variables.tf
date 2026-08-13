@@ -29,6 +29,12 @@ variable "trusted_services" {
   }
 }
 
+variable "enable_ssm_access" {
+  description = "Attach AmazonSSMManagedInstanceCore so instances using this role can be reached with SSM Session Manager instead of SSH."
+  type        = bool
+  default     = true
+}
+
 variable "enable_key_rotation" {
   description = "Rotate the KMS key material annually. Leave on."
   type        = bool

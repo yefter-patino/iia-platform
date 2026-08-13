@@ -51,3 +51,8 @@ output "secret_reader_role_arn" {
   description = "Role that may read the secret. Phase 6 attaches this to the ECS task."
   value       = module.iam.secret_reader_role_arn
 }
+
+output "instance_profile_name" {
+  description = "Pass this to `aws ec2 run-instances --iam-instance-profile` to get an SSM-reachable test instance."
+  value       = module.iam.instance_profile_name
+}

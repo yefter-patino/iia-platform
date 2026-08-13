@@ -208,3 +208,46 @@ resource "aws_iam_role_policy_attachment" "secret_reader" {
   role       = aws_iam_role.secret_reader.name
   policy_arn = aws_iam_policy.secret_reader.arn
 }
+
+# --- SSM Session Manager access ---------------------------------------------
+#
+# docs/phase-01-network.md defers its own verification step to here: getting a
+# shell on an instance in a private subnet without opening port 22, without a
+# bastion, and without a key pair to lose.
+#
+# Session Manager works by having an agent on the instance poll the SSM
+# service and open the connection *outbound*. That is why no inbound rule is
+# needed -- the instance dials out, you never dial in. It is also why the
+# instance still needs a route to the internet (the NAT) or VPC interface
+# endpoints for ssm, ssmmessages and ec2messages. Those endpoints are about
+# $7/month each, so for a lab the NAT is the cheaper way to run the test.
+#
+# AmazonSSMManagedInstanceCore is an AWS-managed policy. Using a managed
+# policy here rather than hand-writing one is the right call: the permission
+# set changes as the SSM agent gains features, and AWS maintains it.
+
+resource "aws_iam_role_policy_attachment" "ssm_core" {
+  count = var.enable_ssm_access ? 1 : 0
+
+  role       = aws_iam_role.secret_reader.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+# An IAM role cannot be attached to an EC2 instance directly. The instance
+# profile is the container that makes that possible -- a detail that only
+# ever surfaces when you try to launch an instance and find the role missing
+# from the dropdown.
+#
+# Guarded on ec2.amazonaws.com being a trusted principal: an instance profile
+# wrapping a role that EC2 cannot assume would create cleanly and then fail at
+# launch time, which is a worse error than not existing.
+resource "aws_iam_instance_profile" "secret_reader" {
+  count = contains(var.trusted_services, "ec2.amazonaws.com") ? 1 : 0
+
+  name = "${local.name}-secret-reader"
+  role = aws_iam_role.secret_reader.name
+
+  tags = merge(var.tags, {
+    Name = "${local.name}-secret-reader"
+  })
+}

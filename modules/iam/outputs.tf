@@ -38,3 +38,13 @@ output "secret_reader_policy_arn" {
   description = "ARN of the least-privilege policy, so later phases can attach it to other roles."
   value       = aws_iam_policy.secret_reader.arn
 }
+
+output "instance_profile_name" {
+  description = "Instance profile to attach when launching an EC2 instance. Null if ec2.amazonaws.com is not a trusted principal."
+  value       = try(aws_iam_instance_profile.secret_reader[0].name, null)
+}
+
+output "instance_profile_arn" {
+  description = "ARN of the instance profile. Null if ec2.amazonaws.com is not a trusted principal."
+  value       = try(aws_iam_instance_profile.secret_reader[0].arn, null)
+}
