@@ -31,21 +31,31 @@ state in S3.
 
 ### 1. AWS profile
 
-Create a named profile so nothing depends on default credentials:
+This lab currently runs on the **`default`** profile. That is what the
+committed `.example` files point at, and what the live `terraform.tfvars` and
+`envs/dev/backend.hcl` use.
+
+A dedicated named profile is the better habit — it keeps the lab's credentials
+separate from whatever your default profile happens to point at, so a stray
+`terraform apply` in the wrong shell cannot reach the wrong account. To switch:
 
 ```bash
 aws configure --profile platform-lab
 ```
 
-You will be prompted for the access key, secret, region and output format.
-Those values are written to `~/.aws/credentials` on your Mac. They never go in
-this repo — `.gitignore` blocks `.tfvars`, `credentials`, `.env` and `*.pem`,
-and the pre-commit hooks scan for keys on every commit.
+Then set `aws_profile = "platform-lab"` in **both** `terraform.tfvars` files and
+`profile` in `envs/dev/backend.hcl`. All three have to agree, or `init` and
+`apply` will authenticate as different identities.
 
-Confirm you are not on the root user:
+Either way, the access key and secret are written to `~/.aws/credentials` on
+your Mac. They never go in this repo — `.gitignore` blocks `.tfvars`,
+`credentials`, `.env` and `*.pem`, and the pre-commit hooks scan for keys on
+every commit.
+
+Confirm you are not on the root user (pass whichever profile you chose):
 
 ```bash
-./scripts/check-identity.sh platform-lab
+./scripts/check-identity.sh default
 ```
 
 ### 2. Toolchain
@@ -122,16 +132,21 @@ command instead of a full rebuild.
 
 ## Git workflow
 
-One branch per phase, opened as a merge request, self-reviewed, then merged.
+Remote: <https://github.com/yefter-patino/iia-platform> — **public**, so treat
+every commit as world-readable. The `.gitignore` and the pre-commit scanners
+are what keep real values out; never work around them.
+
+One branch per phase, opened as a pull request, self-reviewed, then merged.
 
 ```bash
-git checkout -b phase-1-network
+git checkout -b phase-2-iam
 # ...work...
-git add -A && git commit -m "Phase 1: VPC, subnets, NAT, route tables"
-git push -u origin phase-1-network
+git add -A && git commit -m "Phase 2: IAM roles, policies, Secrets Manager"
+git push -u origin phase-2-iam
+gh pr create --fill        # or use the link git prints
 ```
 
-Then open the MR in GitLab, read your own diff properly, and merge.
+Then read your own diff properly on GitHub and merge.
 
 Reading your own diff is not a formality — it is where you catch the hardcoded
 value you meant to parameterise.
