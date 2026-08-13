@@ -6,12 +6,14 @@
 # the NAT and its Elastic IP and leaves the VPC, subnets and routes alone,
 # so tomorrow you flip it back on instead of rebuilding everything.
 #
+# The setting is written into envs/dev/terraform.tfvars, so a later
+# `terraform apply` with no arguments will not bring the NAT back.
+#
 # Turn it back on:  ./scripts/nat-on.sh
 
 set -euo pipefail
 
-cd "$(dirname "$0")/../envs/dev"
+"$(dirname "$0")/nat-toggle.sh" false -auto-approve
 
-terraform apply -var="enable_nat_gateway=false" -auto-approve
 echo
 echo "NAT Gateway destroyed. VPC and subnets are still there (and free)."
