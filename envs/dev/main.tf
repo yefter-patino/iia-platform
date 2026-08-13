@@ -1,10 +1,12 @@
 # ---------------------------------------------------------------------------
-# PHASE 1 -- the dev environment.
+# The dev environment.
 #
-# This file does almost nothing on its own. It just calls the network module
-# and passes in the values for this environment. That separation is the point:
-# the module says HOW to build a network, this file says WHICH one to build.
+# This file does almost nothing on its own. It just calls the modules and
+# passes in the values for this environment. That separation is the point:
+# a module says HOW to build a thing, this file says WHICH one to build.
 # ---------------------------------------------------------------------------
+
+# --- Phase 1: the network ---------------------------------------------------
 
 module "network" {
   source = "../../modules/network"
@@ -18,6 +20,22 @@ module "network" {
   # One NAT for the whole VPC. In production you would set this to false so
   # each AZ has its own and a single AZ failure cannot cut off the others.
   single_nat_gateway = true
+
+  tags = var.common_tags
+}
+
+# --- Phase 2: identity and secrets ------------------------------------------
+
+module "iam" {
+  source = "../../modules/iam"
+
+  name_prefix = var.name_prefix
+  environment = var.environment
+  secret_name = var.secret_name
+
+  # EC2 only for now. Phase 6 adds ecs-tasks.amazonaws.com so the FastAPI
+  # task can read the same secret through the same role.
+  trusted_services = var.trusted_services
 
   tags = var.common_tags
 }

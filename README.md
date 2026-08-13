@@ -16,6 +16,7 @@ Everything is Terraform. Nothing is created by clicking in the console.
 bootstrap/          run once - creates the Terraform state bucket + budget alarm
 modules/
   network/          reusable VPC module (Phase 1)
+  iam/              KMS key, Secrets Manager secret, least-privilege role (Phase 2)
 envs/
   dev/              the dev environment - calls the modules
 scripts/            helper shell scripts
@@ -123,6 +124,8 @@ Transit Gateway**. Phase 1 only has the first one.
 | NAT Gateway | ~$0.045/hr + data | **the one to watch** — about $1/day |
 | Elastic IP attached to NAT | free while attached | charged if left unattached |
 | S3 state bucket | pennies | leave it up |
+| KMS customer-managed key (Phase 2) | ~$1.00/month | does not stop when you stop working |
+| Secrets Manager secret (Phase 2) | ~$0.40/month | same |
 
 `nat-off.sh` sets `enable_nat_gateway = false` and re-applies, so you tear down
 only the NAT and its EIP. The VPC survives, which means the next morning is one
@@ -166,7 +169,7 @@ value you meant to parameterise.
 |---|---|---|
 | 0 | Account safety, toolchain, Git workflow | ✅ in this repo |
 | 1 | VPC, subnets, NAT, routing, security groups | ✅ in this repo |
-| 2 | IAM roles, least-privilege policies, Secrets Manager | next |
+| 2 | IAM roles, least-privilege policies, Secrets Manager | ✅ in this repo |
 | 3 | S3 data lake + Glue crawler/ETL + Athena | |
 | 4 | PySpark anomaly job on transient EMR | |
 | 5 | `platformctl` Python CLI + boto3 + pytest/moto | |
