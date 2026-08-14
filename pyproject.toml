@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "platformctl"
+version = "0.1.0"
+description = "Operator CLI for the yefter IIA platform"
+readme = "README.md"
+# 3.9 still works, but boto3 drops support for it in April 2026 and the
+# system Python on this Mac is 3.9. Pinning the floor at 3.9 documents what
+# it currently runs on; CI uses 3.12.
+requires-python = ">=3.9"
+dependencies = ["boto3>=1.34"]
+
+[project.scripts]
+platformctl = "platformctl.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "moto[s3,glue,secretsmanager,athena]>=5"]
+
+[tool.setuptools.packages.find]
+include = ["platformctl*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# moto and boto3 are noisy about Python 3.9's end of life; the signal to
+# noise ratio of the suite matters more than repeating a known warning.
+filterwarnings = ["ignore::DeprecationWarning", "ignore:.*Python 3.9.*:Warning"]

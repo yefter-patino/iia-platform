@@ -88,3 +88,31 @@ output "athena_workgroup_name" {
   description = "Pass with --work-group so the scan ceiling applies."
   value       = module.datalake.athena_workgroup_name
 }
+
+# --- Phase 4 ----------------------------------------------------------------
+# scripts/run-emr-job.sh reads these to build the create-cluster call.
+
+output "emr_service_role_name" {
+  description = "EMR service role, passed as --service-role."
+  value       = module.emr.service_role_name
+}
+
+output "emr_instance_profile_name" {
+  description = "Instance profile for the cluster nodes."
+  value       = module.emr.instance_profile_name
+}
+
+output "emr_master_security_group_id" {
+  description = "Master node security group."
+  value       = module.emr.master_security_group_id
+}
+
+output "emr_core_security_group_id" {
+  description = "Core/task node security group."
+  value       = module.emr.core_security_group_id
+}
+
+output "emr_service_access_security_group_id" {
+  description = "Service access group, required for private-subnet clusters."
+  value       = module.emr.service_access_security_group_id
+}

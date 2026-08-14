@@ -1,0 +1,137 @@
+name: CI
+
+# Plan on pull requests, never apply.
+#
+# `terraform apply` is deliberately absent from this workflow. A workflow file
+# is edited in a pull request, so a workflow that can apply is a workflow where
+# reviewing the .tf diff is not enough -- someone could change what runs at the
+# same time as what it runs against. Applying stays a human action from a
+# laptop until there is a review process that treats CI config as production.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# No AWS keys anywhere. id-token lets the runner mint an OIDC token that AWS
+# exchanges for hour-long credentials scoped to this repository.
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TF_VERSION: "1.14.5"
+  AWS_REGION: us-east-1
+
+jobs:
+  python:
+    name: Python lint and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      # No credentials configured for this job at all. The suite runs against
+      # moto, and conftest.py sets fake credentials so a missing mock fails
+      # loudly instead of reaching a real account.
+      - name: Test
+        run: pytest -q
+
+  terraform:
+    name: Terraform fmt, validate, plan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Format check
+        run: terraform fmt -check -recursive
+
+      # Validate needs no credentials -- it checks syntax and types only.
+      # Running it before the AWS step means a typo fails in seconds rather
+      # than after an OIDC round trip.
+      - name: Validate modules
+        run: |
+          for dir in modules/*/; do
+            echo "== $dir"
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+          done
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-${{ github.run_id }}
+
+      - name: Confirm which identity we got
+        run: aws sts get-caller-identity
+
+      - name: Init dev
+        run: |
+          terraform -chdir=envs/dev init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="region=${{ env.AWS_REGION }}"
+
+      # -detailed-exitcode: 0 = no changes, 2 = changes pending, 1 = error.
+      # Distinguishing "there is drift" from "the plan blew up" is the reason
+      # to use it rather than plain plan.
+      - name: Plan
+        id: plan
+        run: |
+          set +e
+          terraform -chdir=envs/dev plan -input=false -no-color -detailed-exitcode -out=tfplan
+          code=$?
+          set -e
+          case $code in
+            0) echo "No changes." ;;
+            2) echo "Changes pending -- review the plan before applying by hand." ;;
+            *) echo "Plan failed."; exit $code ;;
+          esac
+
+  image:
+    name: Build the API image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: gha-image-${{ github.run_id }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Tagged with the commit SHA, never :latest. The ECR repository is set
+      # to IMMUTABLE, so a tag is a permanent reference to one build -- which
+      # is what makes "roll back to the previous image" mean anything.
+      #
+      # Pushes only from main. A pull request builds the image to prove it
+      # builds, and throws it away.
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: service/Dockerfile
+          platforms: linux/arm64
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

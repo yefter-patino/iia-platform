@@ -65,6 +65,30 @@ variable "athena_bytes_scanned_cutoff" {
   default     = 1073741824
 }
 
+variable "api_image_uri" {
+  description = "Full image URI to run. Empty means build it from the ECR repo URL and api_image_tag."
+  type        = string
+  default     = ""
+}
+
+variable "api_image_tag" {
+  description = "Tag to deploy from the ECR repository. Immutable tags mean this is a real version, not a moving target."
+  type        = string
+  default     = "latest"
+}
+
+variable "api_desired_count" {
+  description = "Tasks to run. 0 keeps the service defined and stops all Fargate billing."
+  type        = number
+  default     = 0
+}
+
+variable "api_cpu_architecture" {
+  description = "Must match the image. ARM64 when built on Apple silicon without cross-compiling."
+  type        = string
+  default     = "ARM64"
+}
+
 variable "common_tags" {
   description = "Tags applied to every resource."
   type        = map(string)

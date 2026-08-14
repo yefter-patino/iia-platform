@@ -53,3 +53,13 @@ output "athena_workgroup_name" {
   description = "Athena workgroup. Pass with --work-group so the scan ceiling applies."
   value       = aws_athena_workgroup.this.name
 }
+
+output "athena_workgroup_arn" {
+  description = "Workgroup ARN, so query permissions can name one workgroup instead of all of them."
+  value       = aws_athena_workgroup.this.arn
+}
+
+output "athena_results_bucket_arn" {
+  description = "ARN of the Athena results bucket."
+  value       = aws_s3_bucket.results.arn
+}

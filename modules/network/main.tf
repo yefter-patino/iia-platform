@@ -55,7 +55,7 @@ resource "aws_vpc" "this" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = merge(var.tags, {
+  tags = merge(var.tags, var.vpc_extra_tags, {
     Name = "${local.name}-vpc"
   })
 }
@@ -97,7 +97,7 @@ resource "aws_subnet" "private" {
   availability_zone       = local.azs[count.index]
   map_public_ip_on_launch = false
 
-  tags = merge(var.tags, {
+  tags = merge(var.tags, var.private_subnet_extra_tags, {
     Name = "${local.name}-private-${local.azs[count.index]}"
     Tier = "private"
   })
