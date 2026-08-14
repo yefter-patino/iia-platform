@@ -135,3 +135,62 @@ module "ecs" {
 
   tags = var.common_tags
 }
+
+# --- Phase 7: CI -------------------------------------------------------------
+
+module "cicd" {
+  source = "../../modules/cicd"
+
+  name_prefix       = var.name_prefix
+  environment       = var.environment
+  github_repository = var.github_repository
+
+  # This account already had GitHub registered as an OIDC provider by an
+  # unrelated workload, and only one per URL can exist. Reuse it rather than
+  # trying to own it -- creating it here would fail, and importing it would
+  # mean this lab could destroy something another tenant depends on.
+  create_oidc_provider       = var.create_oidc_provider
+  existing_oidc_provider_arn = var.existing_oidc_provider_arn
+
+  state_bucket_arn   = "arn:aws:s3:::${var.state_bucket_name}"
+  ecr_repository_arn = module.ecr.repository_arn
+
+  tags = var.common_tags
+}
+
+# --- Phase 8: monitoring -----------------------------------------------------
+
+module "monitoring" {
+  source = "../../modules/monitoring"
+
+  name_prefix = var.name_prefix
+  environment = var.environment
+  alert_email = var.alert_email
+
+  raw_bucket_name       = module.datalake.raw_bucket_name
+  athena_workgroup_name = module.datalake.athena_workgroup_name
+
+  ecs_cluster_name = module.ecs.cluster_name
+  ecs_service_name = module.ecs.service_name
+  log_group_name   = module.ecs.log_group_name
+
+  tags = var.common_tags
+}
+
+# --- Phase 9 (second half): cross-account pattern ----------------------------
+#
+# trusted_account_id is empty, so both halves land in this account. The
+# mechanism is identical to the real thing; only the account ID differs.
+
+module "crossaccount" {
+  source = "../../modules/crossaccount"
+
+  name_prefix        = var.name_prefix
+  environment        = var.environment
+  trusted_account_id = var.partner_account_id
+  external_id        = var.cross_account_external_id
+
+  curated_bucket_arn = module.datalake.curated_bucket_arn
+
+  tags = var.common_tags
+}

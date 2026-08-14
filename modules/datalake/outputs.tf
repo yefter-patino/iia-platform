@@ -63,3 +63,13 @@ output "athena_results_bucket_arn" {
   description = "ARN of the Athena results bucket."
   value       = aws_s3_bucket.results.arn
 }
+
+output "anomalies_crawler_name" {
+  description = "Crawler over the Phase 4 Parquet output. Run after each EMR job."
+  value       = aws_glue_crawler.anomalies.name
+}
+
+output "anomalies_s3_uri" {
+  description = "Where the Phase 4 job writes its results."
+  value       = "s3://${aws_s3_bucket.curated.id}/${local.anomalies_prefix}"
+}

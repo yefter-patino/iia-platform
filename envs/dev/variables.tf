@@ -89,6 +89,47 @@ variable "api_cpu_architecture" {
   default     = "ARM64"
 }
 
+variable "github_repository" {
+  description = "owner/name of the repo allowed to assume the CI role. This is the OIDC security boundary."
+  type        = string
+  default     = "yefter-patino/iia-platform"
+}
+
+variable "create_oidc_provider" {
+  description = "Create the GitHub OIDC provider. False when the account already has one -- only one per URL is allowed, and this account is shared."
+  type        = bool
+  default     = false
+}
+
+variable "existing_oidc_provider_arn" {
+  description = "ARN of the existing GitHub OIDC provider, used when create_oidc_provider is false."
+  type        = string
+  default     = "arn:aws:iam::866934333672:oidc-provider/token.actions.githubusercontent.com"
+}
+
+variable "state_bucket_name" {
+  description = "Terraform state bucket, so CI can be granted read access to it. Same value as in backend.hcl."
+  type        = string
+}
+
+variable "alert_email" {
+  description = "Where CloudWatch alarms are emailed. AWS sends a confirmation link that must be clicked."
+  type        = string
+  default     = ""
+}
+
+variable "partner_account_id" {
+  description = "Account allowed to assume the cross-account reader. Empty means a same-account simulation."
+  type        = string
+  default     = ""
+}
+
+variable "cross_account_external_id" {
+  description = "ExternalId the caller must present. Defeats the confused-deputy problem."
+  type        = string
+  default     = "yefter-iia-lab"
+}
+
 variable "common_tags" {
   description = "Tags applied to every resource."
   type        = map(string)

@@ -43,6 +43,9 @@ locals {
   # crawler is pointed at a subtree rather than the whole bucket, so adding a
   # second dataset later does not confuse the first table.
   telemetry_prefix = "telemetry/"
+
+  # Where the Phase 4 PySpark job writes its Parquet output.
+  anomalies_prefix = "anomalies/"
 }
 
 data "aws_caller_identity" "current" {}
@@ -239,6 +242,37 @@ data "aws_iam_policy_document" "crawler_s3" {
     resources = ["${aws_s3_bucket.raw.arn}/${local.telemetry_prefix}*"]
   }
 
+  # The Phase 4 job's Parquet output, so the anomalies become a queryable
+  # table rather than files only Spark can read.
+  statement {
+    sid    = "ReadCuratedAnomalies"
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+    ]
+
+    resources = ["${aws_s3_bucket.curated.arn}/${local.anomalies_prefix}*"]
+  }
+
+  statement {
+    sid    = "ListCuratedUnderAnomaliesPrefix"
+    effect = "Allow"
+
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.curated.arn]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values = [
+        local.anomalies_prefix,
+        "${local.anomalies_prefix}*",
+      ]
+    }
+  }
+
   # Listing is granted on the bucket itself -- s3:ListBucket is a bucket-level
   # action, so it cannot be scoped with an object ARN. The prefix condition is
   # what narrows it.
@@ -331,5 +365,30 @@ resource "aws_athena_workgroup" "this" {
 
   tags = merge(var.tags, {
     Name = "${local.name}-wg"
+  })
+}
+
+# A second crawler over the Phase 4 output. Without it the anomalies are
+# Parquet files that only Spark can read; with it they are a table, and the
+# API and CLI can answer "what were the worst flows" in SQL.
+resource "aws_glue_crawler" "anomalies" {
+  name          = "${local.name}-anomalies"
+  description   = "Infers the schema of the Phase 4 PySpark output in the curated bucket."
+  role          = aws_iam_role.crawler.arn
+  database_name = aws_glue_catalog_database.this.name
+
+  s3_target {
+    path = "s3://${aws_s3_bucket.curated.id}/${local.anomalies_prefix}"
+  }
+
+  schedule = var.crawler_schedule
+
+  schema_change_policy {
+    delete_behavior = "LOG"
+    update_behavior = "UPDATE_IN_DATABASE"
+  }
+
+  tags = merge(var.tags, {
+    Name = "${local.name}-anomalies"
   })
 }
