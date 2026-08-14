@@ -47,9 +47,21 @@ SUSPICIOUS_PORTS = [4444, 6667, 31337, 8888, 9001, 1337]
 PROTOCOLS = {6: "TCP", 17: "UDP", 1: "ICMP"}
 
 
-def internal_ip(rng: random.Random) -> str:
-    """An address inside the lab VPC CIDR (10.20.0.0/16)."""
-    return str(ipaddress.IPv4Address(int(ipaddress.IPv4Address("10.20.0.0")) + rng.randint(1, 65000)))
+def host_pool(rng: random.Random, size: int) -> list:
+    """A fixed set of internal hosts that all traffic comes from.
+
+    This matters more than it looks. Drawing each srcaddr randomly from a /16
+    gives ~1 flow per source across a dataset this size, and *any* per-source
+    statistic is then meaningless: the median of one value is that value, the
+    MAD is zero, and a z-score cannot be computed. The Phase 4 job degrades to
+    its hardcoded port list without saying so.
+
+    A real network has a bounded set of hosts that each talk repeatedly. The
+    pool reproduces that, and it is what makes "unusual *for this host*"
+    a question with an answer.
+    """
+    base = int(ipaddress.IPv4Address("10.20.0.0"))
+    return [str(ipaddress.IPv4Address(base + rng.randint(1, 65000))) for _ in range(size)]
 
 
 def external_ip(rng: random.Random) -> str:
@@ -60,7 +72,7 @@ def external_ip(rng: random.Random) -> str:
             return str(addr)
 
 
-def make_record(rng: random.Random, day: date, anomalous: bool) -> dict:
+def make_record(rng: random.Random, day: date, anomalous: bool, hosts: list) -> dict:
     start = datetime.combine(day, datetime.min.time(), tzinfo=timezone.utc) + timedelta(
         seconds=rng.randint(0, 86_399)
     )
@@ -83,7 +95,7 @@ def make_record(rng: random.Random, day: date, anomalous: bool) -> dict:
         "version": 2,
         "start": int(start.timestamp()),
         "end": int((start + timedelta(seconds=duration)).timestamp()),
-        "srcaddr": internal_ip(rng),
+        "srcaddr": rng.choice(hosts),
         "dstaddr": external_ip(rng),
         "srcport": rng.randint(32768, 60999),
         "dstport": dst_port,
@@ -106,6 +118,13 @@ def main() -> int:
     )
     parser.add_argument("--seed", type=int, default=None, help="Seed for reproducible output.")
     parser.add_argument(
+        "--hosts",
+        type=int,
+        default=200,
+        help="How many distinct internal hosts generate traffic (default 200). Keep this well below "
+        "total records, or per-source statistics have nothing to compare against.",
+    )
+    parser.add_argument(
         "--s3-uri",
         default=None,
         help="Destination, e.g. s3://bucket/telemetry/. Defaults to `terraform output -raw telemetry_s3_uri`.",
@@ -121,6 +140,7 @@ def main() -> int:
         return 2
 
     rng = random.Random(args.seed)
+    hosts = host_pool(rng, args.hosts)
 
     s3_uri = args.s3_uri
     if not s3_uri and not args.dry_run:
@@ -157,12 +177,14 @@ def main() -> int:
             for _ in range(args.records_per_day):
                 is_anomaly = rng.random() < args.anomaly_rate
                 anomalies += is_anomaly
-                handle.write(json.dumps(make_record(rng, day, is_anomaly)) + "\n")
+                handle.write(json.dumps(make_record(rng, day, is_anomaly, hosts)) + "\n")
                 total += 1
 
         print(f"  wrote {args.records_per_day:>7,} records  {path.relative_to(workdir)}")
 
+    per_host = total / len(hosts)
     print(f"\n{total:,} records across {args.days} day(s), {anomalies:,} anomalous ({anomalies / total:.1%})")
+    print(f"{len(hosts)} distinct source hosts, ~{per_host:.0f} flows each -- enough for a per-source median")
 
     if args.dry_run:
         print(f"\nDry run. Files are in: {workdir}")

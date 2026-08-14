@@ -49,6 +49,18 @@ variable "single_nat_gateway" {
   default     = true
 }
 
+variable "vpc_extra_tags" {
+  description = "Extra tags for the VPC itself. Phase 4 needs for-use-with-amazon-emr-managed-policies here too: a private-subnet EMR cluster makes EMR create its own service VPC endpoint, and that permission is conditioned on the VPC's tags."
+  type        = map(string)
+  default     = {}
+}
+
+variable "private_subnet_extra_tags" {
+  description = "Extra tags for the private subnets only. Phase 4 uses this for for-use-with-amazon-emr-managed-policies, which AmazonEMRServicePolicy_v2 requires on the resources EMR touches."
+  type        = map(string)
+  default     = {}
+}
+
 variable "enable_s3_gateway_endpoint" {
   description = "Route S3 traffic from the private subnets through a VPC gateway endpoint instead of the NAT Gateway. Free, and it removes per-GB NAT data charges for S3. No reason to turn this off."
   type        = bool

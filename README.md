@@ -17,7 +17,17 @@ bootstrap/          run once - creates the Terraform state bucket + budget alarm
 modules/
   network/          reusable VPC module (Phase 1)
   iam/              KMS key, Secrets Manager secret, least-privilege role (Phase 2)
-  datalake/         S3 buckets, Glue catalog + crawler, Athena workgroup (Phase 3)
+  datalake/         S3 buckets, Glue catalog + crawlers, Athena workgroup (Phase 3)
+  emr/              roles and security groups for transient Spark clusters (Phase 4)
+  ecr/              private container registry (Phase 6)
+  ecs/              FastAPI service on Fargate (Phase 6)
+  cicd/             GitHub Actions OIDC role, no stored keys (Phase 7)
+  monitoring/       CloudWatch alarms, SNS, dashboard (Phase 8)
+  crossaccount/     sts:AssumeRole trust pattern (Phase 9)
+jobs/               PySpark jobs run on EMR
+platformctl/        the operator CLI (Phase 5)
+service/            the FastAPI app and its Dockerfile (Phase 6)
+tests/              pytest + moto suite for platformctl
 envs/
   dev/              the dev environment - calls the modules
 scripts/            helper shell scripts
@@ -132,6 +142,10 @@ Transit Gateway**. Phase 1 only has the first one.
 | Glue crawler run (Phase 3) | ~$0.15 per run | on-demand only — no schedule by default |
 | Athena query (Phase 3) | $5/TB scanned | workgroup cancels anything over 1 GiB |
 | S3 gateway endpoint | free | **saves money** — keeps S3 traffic off the NAT |
+| EMR m5.xlarge x2 (Phase 4) | ~$0.48/hr total | transient, auto-terminates; ~$0.10 per run |
+| ECR storage (Phase 6) | pennies | lifecycle keeps the last 5 images |
+| Fargate task (Phase 6) | ~$0.012/hr | `api_desired_count = 0` is the off switch |
+| CloudWatch alarms (Phase 8) | ~$0.10/alarm/month | three alarms |
 
 `nat-off.sh` sets `enable_nat_gateway = false` and re-applies, so you tear down
 only the NAT and its EIP. The VPC survives, which means the next morning is one
@@ -177,13 +191,13 @@ value you meant to parameterise.
 | 1 | VPC, subnets, NAT, routing, security groups | ✅ in this repo |
 | 2 | IAM roles, least-privilege policies, Secrets Manager | ✅ in this repo |
 | 3 | S3 data lake + Glue crawler/ETL + Athena | ✅ in this repo |
-| 4 | PySpark anomaly job on transient EMR | |
-| 5 | `platformctl` Python CLI + boto3 + pytest/moto | |
-| 6 | FastAPI service in Docker, pushed to ECR, run on ECS | |
-| 7 | GitLab CI: lint → test → plan → build → deploy | |
-| 8 | CloudWatch alarms + Prometheus/Grafana | |
-| 9 | S3 gateway endpoint, cross-account `sts:AssumeRole` | S3 endpoint ✅ · cross-account needs a 2nd account |
-| Capstone | End-to-end run, Neo4j topology graph, architecture write-up | |
+| 4 | PySpark anomaly job on transient EMR | ✅ in this repo |
+| 5 | `platformctl` Python CLI + boto3 + pytest/moto | ✅ in this repo |
+| 6 | FastAPI service in Docker, pushed to ECR, run on ECS | ✅ in this repo |
+| 7 | GitHub Actions: lint → test → plan → build | ✅ in this repo |
+| 8 | CloudWatch alarms + SNS + dashboard | ✅ in this repo |
+| 9 | S3 gateway endpoint, cross-account `sts:AssumeRole` | ✅ (cross-account simulated in one account) |
+| Capstone | End-to-end run + architecture write-up | ✅ · Neo4j graph not built |
 
 Phase 9 attaches the S3 gateway endpoint to the private route tables — that is
 why `private_route_table_ids` is already an output of the network module.

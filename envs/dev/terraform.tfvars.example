@@ -10,3 +10,13 @@ az_count = 2
 
 # Flip to false and re-apply to kill the NAT Gateway between work sessions.
 enable_nat_gateway = true
+
+# Phase 7: the repo allowed to assume the CI role via OIDC.
+github_repository = "yefter-patino/iia-platform"
+state_bucket_name = "yefter-tfstate-<ACCOUNT_ID>-<REGION>"
+
+# Phase 8: where alarms go. Confirm the SNS subscription email or they vanish.
+alert_email = "you@example.com"
+
+# Phase 9: leave empty for a same-account simulation of cross-account access.
+partner_account_id = ""
