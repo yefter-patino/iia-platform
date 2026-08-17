@@ -5,11 +5,13 @@
 variable "aws_region" {
   description = "AWS region to deploy into."
   type        = string
+  default     = "us-east-1"
 }
 
 variable "aws_profile" {
-  description = "Name of the AWS CLI profile to use."
+  description = "AWS CLI profile to use. Empty means fall back to the default credential chain, which is what CI needs."
   type        = string
+  default     = ""
 }
 
 variable "name_prefix" {
@@ -27,6 +29,7 @@ variable "environment" {
 variable "vpc_cidr" {
   description = "CIDR block for the VPC."
   type        = string
+  default     = "10.20.0.0/16"
 }
 
 variable "az_count" {
@@ -72,9 +75,21 @@ variable "api_image_uri" {
 }
 
 variable "api_image_tag" {
-  description = "Tag to deploy from the ECR repository. Immutable tags mean this is a real version, not a moving target."
+  description = "Tag to deploy from the ECR repository. A commit SHA, not a floating tag."
   type        = string
-  default     = "latest"
+  default     = "a34c66c"
+
+  # "latest" is not just discouraged here, it is guaranteed broken: the ECR
+  # repository is IMMUTABLE and CI tags every push with the commit SHA, so
+  # nothing named latest is ever pushed. Defaulting to it produced a live task
+  # definition pointing at a tag that does not exist -- harmless only because
+  # desired_count was 0, and a failed pull the moment it was not.
+  #
+  # Caught by the CI plan, which is the argument for running plan in CI.
+  validation {
+    condition     = var.api_image_tag != "latest" && var.api_image_tag != ""
+    error_message = "api_image_tag must be a real pushed tag (a commit SHA). The ECR repo is IMMUTABLE, so 'latest' never exists."
+  }
 }
 
 variable "api_desired_count" {
@@ -95,6 +110,18 @@ variable "github_repository" {
   default     = "yefter-patino/iia-platform"
 }
 
+variable "github_owner_id" {
+  description = "Numeric GitHub owner ID. GitHub's immutable sub claim embeds it."
+  type        = string
+  default     = "276095800"
+}
+
+variable "github_repository_id" {
+  description = "Numeric GitHub repository ID."
+  type        = string
+  default     = "1329850140"
+}
+
 variable "create_oidc_provider" {
   description = "Create the GitHub OIDC provider. False when the account already has one -- only one per URL is allowed, and this account is shared."
   type        = bool
@@ -110,6 +137,7 @@ variable "existing_oidc_provider_arn" {
 variable "state_bucket_name" {
   description = "Terraform state bucket, so CI can be granted read access to it. Same value as in backend.hcl."
   type        = string
+  default     = ""
 }
 
 variable "alert_email" {

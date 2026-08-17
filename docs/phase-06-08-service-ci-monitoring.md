@@ -107,6 +107,61 @@ action until CI config is treated as production.
 Note that a plan role is inherently broad in *reads*: `terraform plan` must
 describe every resource it manages. That is the honest cost of plan-in-CI.
 
+## Five things that broke before CI was green
+
+Running the pipeline found more than building it did.
+
+**1. The sub claim is not what the docs show.** The assume failed with
+`Not authorized to perform sts:AssumeRoleWithWebIdentity`, an error naming
+neither the claim nor the mismatch. Decoding the token GitHub actually issues:
+
+```
+sub: repo:yefter-patino@276095800/iia-platform@1329850140:pull_request
+```
+
+GitHub now issues **immutable subject claims** with numeric owner and repo IDs
+embedded. Every tutorial still shows `repo:owner/name:...`, which no longer
+matches. The numeric IDs are the better thing to pin anyway — names can be
+renamed and released, so trusting a name means trusting whoever registers it
+next.
+
+**2. A hardcoded provider profile makes the config laptop-only.** CI has no
+`~/.aws/credentials`; the OIDC action puts short-lived credentials in
+environment variables. `profile = var.aws_profile` sent the provider looking
+for a file that does not exist. It resolves to `null` when empty now, so the
+standard credential chain works in both places.
+
+**3. `setup-terraform` silently breaks `-detailed-exitcode`.** The action
+installs a wrapper around the binary by default, and the wrapper does not
+propagate the exit code. The job printed **"No changes."** over a plan
+containing fifteen creates and twelve destroys, and went green.
+`terraform_wrapper: false`. A green tick that means nothing is worse than a
+red one.
+
+**4. S3's IAM action names do not match its API names.** The call is
+`GetBucketAccelerateConfiguration`; the IAM action is
+`s3:GetAccelerateConfiguration`. Same for `GetEncryptionConfiguration` and
+`GetLifecycleConfiguration`. An `s3:GetBucket*` wildcard looks like it covers
+bucket reads and does not. Worse, `HeadBucket` — how the provider decides a
+bucket exists — needs `s3:ListBucket`, and without it the plan proposed
+*creating buckets that already held the data*.
+
+**5. `secretsmanager:Get*` would have leaked the secret.** The plan needs
+`GetResourcePolicy`. The convenient wildcard also grants `GetSecretValue`,
+which would let any workflow run print the secret. Granted by exact action
+name instead.
+
+## What the CI plan then caught
+
+Once the plan was trustworthy it immediately found real drift: the live task
+definition referenced `:latest`, while ECR held only `a34c66c`. The variable
+defaulted to `latest`, the ECR repository is IMMUTABLE, and CI tags by commit
+SHA — so nothing named `latest` is ever pushed. The default was guaranteed to
+reference a nonexistent image. Harmless only because `desired_count` was 0;
+scaling up would have failed the pull.
+
+That is the argument for running plan in CI, found by running plan in CI.
+
 ## One provider per account
 
 The apply failed with:

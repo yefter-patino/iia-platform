@@ -80,10 +80,31 @@ def make_record(rng: random.Random, day: date, anomalous: bool, hosts: list) -> 
     protocol = rng.choice([6, 6, 6, 17, 1])
 
     if anomalous:
-        dst_port = rng.choice(SUSPICIOUS_PORTS)
-        # Two orders of magnitude above normal: an exfiltration-shaped flow.
-        num_bytes = rng.randint(50_000_000, 500_000_000)
-        packets = rng.randint(40_000, 400_000)
+        # Three shapes, deliberately. If every anomaly is both huge AND on a
+        # suspicious port, the volume rule and the port rule agree on
+        # everything, and the results cannot tell you which one is working --
+        # a detector could have a completely dead statistical half and still
+        # report perfect recall. Splitting the shapes is what makes the two
+        # signals separable, and it is the difference between measuring the
+        # detector and measuring the test data.
+        #
+        #   both        loud and obvious      -- caught by either rule
+        #   volume_only exfiltration over 443 -- ONLY the statistics catch it
+        #   port_only   quiet C2 beacon       -- ONLY the port list catches it
+        kind = rng.choices(["both", "volume_only", "port_only"], weights=[5, 3, 2])[0]
+
+        if kind == "port_only":
+            # Small, ordinary-sized flow to a port that has no business being
+            # there. A byte-count statistic cannot see this one at all.
+            dst_port = rng.choice(SUSPICIOUS_PORTS)
+            num_bytes = rng.randint(200, 250_000)
+            packets = max(1, num_bytes // rng.randint(200, 1500))
+        else:
+            # Two orders of magnitude above normal: an exfiltration-shaped flow.
+            num_bytes = rng.randint(50_000_000, 500_000_000)
+            packets = rng.randint(40_000, 400_000)
+            dst_port = rng.choice(COMMON_PORTS) if kind == "volume_only" else rng.choice(SUSPICIOUS_PORTS)
+
         action = rng.choice(["ACCEPT", "REJECT", "REJECT"])
     else:
         dst_port = rng.choice(COMMON_PORTS)

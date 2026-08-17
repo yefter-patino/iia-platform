@@ -10,6 +10,13 @@ tfplan
 # Real values live here. The .example files are what get committed.
 *.tfvars
 !*.tfvars.example
+
+# One deliberate exception. envs/dev/ci.tfvars holds the values CI plans
+# against and contains nothing sensitive: region, CIDR, and the two off
+# switches. It is named explicitly rather than by pattern, so a stray
+# ci.tfvars elsewhere is still ignored and the blanket *.tfvars rule keeps
+# protecting everything else.
+!envs/dev/ci.tfvars
 backend.hcl
 !backend.hcl.example
 

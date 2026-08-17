@@ -21,13 +21,52 @@
 locals {
   name = "${var.name_prefix}-${var.environment}"
 
-  # repo:owner/name:ref:refs/heads/main
-  #   -- only the main branch of exactly this repo
-  # repo:owner/name:pull_request
-  #   -- pull requests, which is what runs plan on a PR
+  # GitHub now issues IMMUTABLE subject claims. The sub is no longer
+  #
+  #     repo:owner/name:pull_request
+  #
+  # but
+  #
+  #     repo:owner@<owner_id>/name@<repo_id>:pull_request
+  #
+  # Observed from a real run:
+  #
+  #     sub: repo:yefter-patino@276095800/iia-platform@1329850140:pull_request
+  #
+  # Practically every tutorial still shows the legacy form, and a trust policy
+  # written that way fails with "Not authorized to perform
+  # sts:AssumeRoleWithWebIdentity" -- an error that names neither the claim nor
+  # the mismatch. The only way to see it is to decode the token GitHub issues.
+  #
+  # The numeric IDs are the better thing to pin anyway, and are why GitHub made
+  # the change: names can be renamed and released. If someone deletes this
+  # account and another user registers the same login, a policy trusting the
+  # *name* would trust them. A policy trusting 276095800 would not.
+  #
+  # Both forms are accepted so the module works against GitHub Enterprise
+  # instances that still emit the legacy claim. Either way it is pinned to
+  # exactly this repository.
+  repo_immutable = (
+    var.github_owner_id != "" && var.github_repository_id != ""
+    ? format(
+      "%s@%s/%s@%s",
+      split("/", var.github_repository)[0],
+      var.github_owner_id,
+      split("/", var.github_repository)[1],
+      var.github_repository_id,
+    )
+    : ""
+  )
+
+  repo_forms = compact([var.github_repository, local.repo_immutable])
+
   subjects = concat(
-    [for branch in var.allowed_branches : "repo:${var.github_repository}:ref:refs/heads/${branch}"],
-    var.allow_pull_requests ? ["repo:${var.github_repository}:pull_request"] : [],
+    flatten([
+      for form in local.repo_forms : [
+        for branch in var.allowed_branches : "repo:${form}:ref:refs/heads/${branch}"
+      ]
+    ]),
+    var.allow_pull_requests ? [for form in local.repo_forms : "repo:${form}:pull_request"] : [],
   )
 }
 
@@ -116,6 +155,32 @@ resource "aws_iam_role" "deploy" {
 # edited in pull requests.
 
 data "aws_iam_policy_document" "deploy" {
+  # HeadBucket -- which is how the provider decides whether a bucket exists --
+  # requires s3:ListBucket, not s3:GetBucket*. Without it the call 403s, the
+  # provider concludes the bucket is gone, and the plan cheerfully proposes to
+  # create buckets that already hold your data.
+  #
+  # Scoped to this project's buckets by ARN rather than "*", because
+  # s3:ListBucket on every bucket in a shared account is a lot to hand a
+  # workflow that pull requests can edit.
+  # s3:Get* rather than an enumerated list, because S3's IAM action names do
+  # not match its API names and a prefix wildcard silently misses several. The
+  # API call is GetBucketAccelerateConfiguration; the IAM action is
+  # s3:GetAccelerateConfiguration. So does GetEncryptionConfiguration,
+  # GetLifecycleConfiguration, GetReplicationConfiguration. "s3:GetBucket*"
+  # looks like it covers bucket reads and does not, and each miss costs a
+  # round trip through CI to discover.
+  #
+  # The control that matters here is the RESOURCE, not the action list: these
+  # are bucket ARNs without /*, so this grants bucket-configuration reads
+  # only. Reading object contents needs an object ARN, which is not granted.
+  statement {
+    sid       = "ReadProjectBucketConfiguration"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket", "s3:Get*"]
+    resources = var.readable_bucket_arns
+  }
+
   statement {
     sid    = "ReadAndLockTerraformState"
     effect = "Allow"
@@ -149,13 +214,20 @@ data "aws_iam_policy_document" "deploy" {
       "kms:List*",
       "secretsmanager:Describe*",
       "secretsmanager:List*",
+      # Explicitly NOT secretsmanager:Get* -- that wildcard includes
+      # GetSecretValue, which would let any workflow run print the secret.
+      # Terraform needs the resource policy to plan; it never needs the value.
+      "secretsmanager:GetResourcePolicy",
       "elasticmapreduce:Describe*",
       "elasticmapreduce:List*",
       "ecs:Describe*",
       "ecs:List*",
       "ecr:Describe*",
       "ecr:List*",
-      "ecr:GetRepositoryPolicy",
+      # Get* on ECR is all read actions -- repository policy, lifecycle
+      # policy, layer download URLs. Nothing here reveals anything the plan
+      # does not already need.
+      "ecr:Get*",
       "logs:Describe*",
       "logs:ListTagsForResource",
       "cloudwatch:Describe*",

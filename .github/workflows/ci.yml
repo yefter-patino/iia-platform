@@ -55,6 +55,12 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+          # The action installs a wrapper script around terraform by default,
+          # and the wrapper does not propagate -detailed-exitcode. The plan
+          # step below then reads exit 0 and reports "No changes" over a plan
+          # containing fifteen creates. A green tick that means nothing is
+          # worse than a red one.
+          terraform_wrapper: false
 
       - name: Format check
         run: terraform fmt -check -recursive
@@ -93,7 +99,10 @@ jobs:
         id: plan
         run: |
           set +e
-          terraform -chdir=envs/dev plan -input=false -no-color -detailed-exitcode -out=tfplan
+          terraform -chdir=envs/dev plan -input=false -no-color -detailed-exitcode -out=tfplan \
+            -var-file=ci.tfvars \
+            -var="state_bucket_name=${{ vars.TF_STATE_BUCKET }}" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}"
           code=$?
           set -e
           case $code in

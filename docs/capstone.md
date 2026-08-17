@@ -84,34 +84,47 @@ are one-line off switches. Total spend for this entire build was under $2.
 
 This section matters more than the one above.
 
-**The two detection signals are perfectly correlated.** After fixing the host
-pool, all 231 anomalies fire on *both* rules:
+**~~The two detection signals are perfectly correlated.~~** *Fixed and
+re-verified.* The generator now plants three anomaly shapes — loud (both
+signals), exfiltration over port 443 (volume only), and a quiet beacon on a
+suspicious port (port only). The results are now separable:
 
 ```
-by_volume  by_port  volume_only  total
-231        231      0            231
+by_volume  by_port  volume_only  port_only  total
+180        156      77           53         233
 ```
 
-`volume_only = 0` because the generator makes every planted anomaly both
-high-volume *and* destined for a suspicious port. So while the statistics
-demonstrably work now — the volume rule alone catches 231, against 13 before
-the fix — this dataset still cannot show the z-score catching something the
-port list would have missed. **A real test needs anomalies that are large on a
-perfectly ordinary port.** That is a one-line change to the generator and a
-re-run, and it is the first thing to do next.
+**Neither rule alone reaches 100% recall** — 180 and 156 of 233. The z-score
+independently catches **77 large flows on entirely ordinary ports** that the
+port list would have missed, and the port list catches 53 quiet flows the
+statistics cannot see. Both halves of the detector demonstrably earn their
+place, which is what the earlier runs could not show.
 
-Reporting 100% precision and recall without this paragraph would be the same
-mistake as the previous run, one level up.
 
 **Phase 9 is a same-account simulation.** The mechanism is identical, but the
 property that matters in production — that the two sides are administered by
 different people — cannot be demonstrated in one account.
 
-**Phase 1's "done when" was never run.** The SSM instance profile exists and is
-verified, but nobody has opened a Session Manager shell on a private instance.
+**~~Phase 1's "done when" was never run.~~** *Done.* A `t4g.nano` was launched
+into a private subnet with no public IP (`Public: null`), no key pair
+(`Key: null`), and a security group whose only inbound rule references itself —
+nothing from any CIDR. It registered with SSM in ~180 seconds and returned a
+root shell on `10.20.2.12` through the Phase 2 instance profile. Instance
+terminated afterwards.
 
-**The Athena scan ceiling has never fired.** The dataset is 3.3 MB; no query can
-approach 1 GiB. Configured and confirmed as configuration only.
+**~~The Athena scan ceiling has never fired.~~** *Fired.* The lake is 3.3 MB, and
+Athena's minimum cutoff is 10 MB, so no query against it can ever trip the
+limit — the guardrail was untestable at this data volume. Verified instead
+against a 21 MB table in a throwaway workgroup with the minimum cutoff:
+
+```json
+{"State": "CANCELLED",
+ "Reason": "Bytes scanned limit was exceeded",
+ "Scanned": 10485760}
+```
+
+It stopped at exactly the limit rather than scanning the file and billing for
+it. Test table, data and workgroup were deleted afterwards.
 
 **No Neo4j topology graph.** The roadmap asks for one; it needs a running
 database, which is ongoing compute this lab turns off.
@@ -121,6 +134,21 @@ across an account that carries unrelated workloads with $3,500/month and
 $1,500/month budgets. It will never fire for this lab's costs. Fixing it needs
 the `Project` tag activated as a cost allocation tag in the Billing console,
 which is manual and not retroactive.
+
+## CI is verified, not just configured
+
+All three jobs green against the real account, with the plan reporting
+`No changes. Your infrastructure matches the configuration.` and the exit code
+path agreeing. The role CI assumed:
+
+```
+arn:aws:sts::866934333672:assumed-role/yefter-dev-github-actions/gha-31992683810
+```
+
+No stored keys anywhere. Getting there took five separate fixes, all recorded
+in `docs/phase-06-08-service-ci-monitoring.md`; the one worth knowing is that
+`setup-terraform`'s wrapper swallows `-detailed-exitcode`, so the job went
+green while printing "No changes" over a plan with twelve destroys in it.
 
 ## The five bugs worth remembering
 
