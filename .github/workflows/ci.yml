@@ -93,7 +93,8 @@ jobs:
         id: plan
         run: |
           set +e
-          terraform -chdir=envs/dev plan -input=false -no-color -detailed-exitcode -out=tfplan
+          terraform -chdir=envs/dev plan -input=false -no-color -detailed-exitcode -out=tfplan \
+            -var="state_bucket_name=${{ vars.TF_STATE_BUCKET }}"
           code=$?
           set -e
           case $code in

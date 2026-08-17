@@ -154,7 +154,7 @@ module "cicd" {
   create_oidc_provider       = var.create_oidc_provider
   existing_oidc_provider_arn = var.existing_oidc_provider_arn
 
-  state_bucket_arn   = "arn:aws:s3:::${var.state_bucket_name}"
+  state_bucket_arn   = "arn:aws:s3:::${var.state_bucket_name != "" ? var.state_bucket_name : "placeholder"}"
   ecr_repository_arn = module.ecr.repository_arn
 
   tags = var.common_tags

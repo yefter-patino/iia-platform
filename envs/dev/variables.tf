@@ -8,8 +8,9 @@ variable "aws_region" {
 }
 
 variable "aws_profile" {
-  description = "Name of the AWS CLI profile to use."
+  description = "AWS CLI profile to use. Empty means fall back to the default credential chain, which is what CI needs."
   type        = string
+  default     = ""
 }
 
 variable "name_prefix" {
@@ -27,6 +28,7 @@ variable "environment" {
 variable "vpc_cidr" {
   description = "CIDR block for the VPC."
   type        = string
+  default     = "10.20.0.0/16"
 }
 
 variable "az_count" {
@@ -122,6 +124,7 @@ variable "existing_oidc_provider_arn" {
 variable "state_bucket_name" {
   description = "Terraform state bucket, so CI can be granted read access to it. Same value as in backend.hcl."
   type        = string
+  default     = ""
 }
 
 variable "alert_email" {
