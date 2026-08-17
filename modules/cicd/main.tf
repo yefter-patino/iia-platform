@@ -163,10 +163,21 @@ data "aws_iam_policy_document" "deploy" {
   # Scoped to this project's buckets by ARN rather than "*", because
   # s3:ListBucket on every bucket in a shared account is a lot to hand a
   # workflow that pull requests can edit.
+  # s3:Get* rather than an enumerated list, because S3's IAM action names do
+  # not match its API names and a prefix wildcard silently misses several. The
+  # API call is GetBucketAccelerateConfiguration; the IAM action is
+  # s3:GetAccelerateConfiguration. So does GetEncryptionConfiguration,
+  # GetLifecycleConfiguration, GetReplicationConfiguration. "s3:GetBucket*"
+  # looks like it covers bucket reads and does not, and each miss costs a
+  # round trip through CI to discover.
+  #
+  # The control that matters here is the RESOURCE, not the action list: these
+  # are bucket ARNs without /*, so this grants bucket-configuration reads
+  # only. Reading object contents needs an object ARN, which is not granted.
   statement {
-    sid       = "ListProjectBucketsSoPlanCanSeeThem"
+    sid       = "ReadProjectBucketConfiguration"
     effect    = "Allow"
-    actions   = ["s3:ListBucket", "s3:GetBucket*"]
+    actions   = ["s3:ListBucket", "s3:Get*"]
     resources = var.readable_bucket_arns
   }
 
