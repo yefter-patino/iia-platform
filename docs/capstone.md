@@ -135,6 +135,21 @@ $1,500/month budgets. It will never fire for this lab's costs. Fixing it needs
 the `Project` tag activated as a cost allocation tag in the Billing console,
 which is manual and not retroactive.
 
+## CI is verified, not just configured
+
+All three jobs green against the real account, with the plan reporting
+`No changes. Your infrastructure matches the configuration.` and the exit code
+path agreeing. The role CI assumed:
+
+```
+arn:aws:sts::866934333672:assumed-role/yefter-dev-github-actions/gha-31992683810
+```
+
+No stored keys anywhere. Getting there took five separate fixes, all recorded
+in `docs/phase-06-08-service-ci-monitoring.md`; the one worth knowing is that
+`setup-terraform`'s wrapper swallows `-detailed-exitcode`, so the job went
+green while printing "No changes" over a plan with twelve destroys in it.
+
 ## The five bugs worth remembering
 
 1. **`nat-off.sh` did not turn the NAT off.** It passed `-var`, which persists
