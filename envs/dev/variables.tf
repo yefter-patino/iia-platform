@@ -95,6 +95,18 @@ variable "github_repository" {
   default     = "yefter-patino/iia-platform"
 }
 
+variable "github_owner_id" {
+  description = "Numeric GitHub owner ID. GitHub's immutable sub claim embeds it."
+  type        = string
+  default     = "276095800"
+}
+
+variable "github_repository_id" {
+  description = "Numeric GitHub repository ID."
+  type        = string
+  default     = "1329850140"
+}
+
 variable "create_oidc_provider" {
   description = "Create the GitHub OIDC provider. False when the account already has one -- only one per URL is allowed, and this account is shared."
   type        = bool

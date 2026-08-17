@@ -141,9 +141,11 @@ module "ecs" {
 module "cicd" {
   source = "../../modules/cicd"
 
-  name_prefix       = var.name_prefix
-  environment       = var.environment
-  github_repository = var.github_repository
+  name_prefix          = var.name_prefix
+  environment          = var.environment
+  github_repository    = var.github_repository
+  github_owner_id      = var.github_owner_id
+  github_repository_id = var.github_repository_id
 
   # This account already had GitHub registered as an OIDC provider by an
   # unrelated workload, and only one per URL can exist. Reuse it rather than

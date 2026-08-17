@@ -18,6 +18,18 @@ variable "github_repository" {
   }
 }
 
+variable "github_owner_id" {
+  description = "Numeric GitHub owner ID, from `gh api repos/OWNER/REPO --jq .owner.id`. Required for the immutable sub claim GitHub now issues."
+  type        = string
+  default     = ""
+}
+
+variable "github_repository_id" {
+  description = "Numeric GitHub repository ID, from `gh api repos/OWNER/REPO --jq .id`."
+  type        = string
+  default     = ""
+}
+
 variable "allowed_branches" {
   description = "Branches whose workflow runs may assume the role."
   type        = list(string)

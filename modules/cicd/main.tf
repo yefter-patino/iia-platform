@@ -21,13 +21,52 @@
 locals {
   name = "${var.name_prefix}-${var.environment}"
 
-  # repo:owner/name:ref:refs/heads/main
-  #   -- only the main branch of exactly this repo
-  # repo:owner/name:pull_request
-  #   -- pull requests, which is what runs plan on a PR
+  # GitHub now issues IMMUTABLE subject claims. The sub is no longer
+  #
+  #     repo:owner/name:pull_request
+  #
+  # but
+  #
+  #     repo:owner@<owner_id>/name@<repo_id>:pull_request
+  #
+  # Observed from a real run:
+  #
+  #     sub: repo:yefter-patino@276095800/iia-platform@1329850140:pull_request
+  #
+  # Practically every tutorial still shows the legacy form, and a trust policy
+  # written that way fails with "Not authorized to perform
+  # sts:AssumeRoleWithWebIdentity" -- an error that names neither the claim nor
+  # the mismatch. The only way to see it is to decode the token GitHub issues.
+  #
+  # The numeric IDs are the better thing to pin anyway, and are why GitHub made
+  # the change: names can be renamed and released. If someone deletes this
+  # account and another user registers the same login, a policy trusting the
+  # *name* would trust them. A policy trusting 276095800 would not.
+  #
+  # Both forms are accepted so the module works against GitHub Enterprise
+  # instances that still emit the legacy claim. Either way it is pinned to
+  # exactly this repository.
+  repo_immutable = (
+    var.github_owner_id != "" && var.github_repository_id != ""
+    ? format(
+      "%s@%s/%s@%s",
+      split("/", var.github_repository)[0],
+      var.github_owner_id,
+      split("/", var.github_repository)[1],
+      var.github_repository_id,
+    )
+    : ""
+  )
+
+  repo_forms = compact([var.github_repository, local.repo_immutable])
+
   subjects = concat(
-    [for branch in var.allowed_branches : "repo:${var.github_repository}:ref:refs/heads/${branch}"],
-    var.allow_pull_requests ? ["repo:${var.github_repository}:pull_request"] : [],
+    flatten([
+      for form in local.repo_forms : [
+        for branch in var.allowed_branches : "repo:${form}:ref:refs/heads/${branch}"
+      ]
+    ]),
+    var.allow_pull_requests ? [for form in local.repo_forms : "repo:${form}:pull_request"] : [],
   )
 }
 
