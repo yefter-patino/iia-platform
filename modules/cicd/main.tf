@@ -155,6 +155,21 @@ resource "aws_iam_role" "deploy" {
 # edited in pull requests.
 
 data "aws_iam_policy_document" "deploy" {
+  # HeadBucket -- which is how the provider decides whether a bucket exists --
+  # requires s3:ListBucket, not s3:GetBucket*. Without it the call 403s, the
+  # provider concludes the bucket is gone, and the plan cheerfully proposes to
+  # create buckets that already hold your data.
+  #
+  # Scoped to this project's buckets by ARN rather than "*", because
+  # s3:ListBucket on every bucket in a shared account is a lot to hand a
+  # workflow that pull requests can edit.
+  statement {
+    sid       = "ListProjectBucketsSoPlanCanSeeThem"
+    effect    = "Allow"
+    actions   = ["s3:ListBucket", "s3:GetBucket*"]
+    resources = var.readable_bucket_arns
+  }
+
   statement {
     sid    = "ReadAndLockTerraformState"
     effect = "Allow"

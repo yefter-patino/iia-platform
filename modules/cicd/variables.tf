@@ -65,6 +65,12 @@ variable "state_bucket_arn" {
   type        = string
 }
 
+variable "readable_bucket_arns" {
+  description = "Buckets CI may list, so terraform plan can tell they exist. HeadBucket needs s3:ListBucket."
+  type        = list(string)
+  default     = []
+}
+
 variable "ecr_repository_arn" {
   description = "The one ECR repository CI may push to."
   type        = string
