@@ -94,7 +94,9 @@ jobs:
         run: |
           set +e
           terraform -chdir=envs/dev plan -input=false -no-color -detailed-exitcode -out=tfplan \
-            -var="state_bucket_name=${{ vars.TF_STATE_BUCKET }}"
+            -var-file=ci.tfvars \
+            -var="state_bucket_name=${{ vars.TF_STATE_BUCKET }}" \
+            -var="alert_email=${{ secrets.ALERT_EMAIL }}"
           code=$?
           set -e
           case $code in

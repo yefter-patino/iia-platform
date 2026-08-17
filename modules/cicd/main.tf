@@ -188,13 +188,20 @@ data "aws_iam_policy_document" "deploy" {
       "kms:List*",
       "secretsmanager:Describe*",
       "secretsmanager:List*",
+      # Explicitly NOT secretsmanager:Get* -- that wildcard includes
+      # GetSecretValue, which would let any workflow run print the secret.
+      # Terraform needs the resource policy to plan; it never needs the value.
+      "secretsmanager:GetResourcePolicy",
       "elasticmapreduce:Describe*",
       "elasticmapreduce:List*",
       "ecs:Describe*",
       "ecs:List*",
       "ecr:Describe*",
       "ecr:List*",
-      "ecr:GetRepositoryPolicy",
+      # Get* on ECR is all read actions -- repository policy, lifecycle
+      # policy, layer download URLs. Nothing here reveals anything the plan
+      # does not already need.
+      "ecr:Get*",
       "logs:Describe*",
       "logs:ListTagsForResource",
       "cloudwatch:Describe*",
