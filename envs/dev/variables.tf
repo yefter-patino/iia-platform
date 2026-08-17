@@ -75,9 +75,21 @@ variable "api_image_uri" {
 }
 
 variable "api_image_tag" {
-  description = "Tag to deploy from the ECR repository. Immutable tags mean this is a real version, not a moving target."
+  description = "Tag to deploy from the ECR repository. A commit SHA, not a floating tag."
   type        = string
-  default     = "latest"
+  default     = "a34c66c"
+
+  # "latest" is not just discouraged here, it is guaranteed broken: the ECR
+  # repository is IMMUTABLE and CI tags every push with the commit SHA, so
+  # nothing named latest is ever pushed. Defaulting to it produced a live task
+  # definition pointing at a tag that does not exist -- harmless only because
+  # desired_count was 0, and a failed pull the moment it was not.
+  #
+  # Caught by the CI plan, which is the argument for running plan in CI.
+  validation {
+    condition     = var.api_image_tag != "latest" && var.api_image_tag != ""
+    error_message = "api_image_tag must be a real pushed tag (a commit SHA). The ECR repo is IMMUTABLE, so 'latest' never exists."
+  }
 }
 
 variable "api_desired_count" {
