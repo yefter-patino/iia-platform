@@ -80,6 +80,28 @@ measure nothing, and that "precision 96.9%" is not evidence that the thing you
 built is the thing doing the work. Breaking results down by which rule fired is
 what surfaced it.
 
+## The second version of the same mistake
+
+Fixing the host pool produced precision 100% and recall 100% — and the
+breakdown showed all 231 detections firing on **both** rules, `volume_only = 0`.
+Every planted anomaly was both huge and on a suspicious port, so the two
+signals agreed on everything and the results still could not show which one
+worked. A completely dead statistical half would have reported the same
+perfect score.
+
+The generator now plants three shapes: loud (both), exfiltration over port 443
+(volume only), and a quiet beacon on a suspicious port (port only):
+
+```
+by_volume  by_port  volume_only  port_only  total
+180        156      77           53         233
+```
+
+Neither rule alone reaches full recall. The z-score independently catches 77
+large flows on ordinary ports; the port list catches 53 small flows the
+statistics cannot see. **Test data that cannot distinguish your signals cannot
+evaluate them**, however good the headline number looks.
+
 ## Three ways the cluster failed before it ran
 
 Worth recording, because none of the error messages named the actual problem.
